@@ -1,6 +1,7 @@
 import requests
 import logging
 from typing import Generator, Dict, Any
+from urllib.parse import urlparse, parse_qs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,7 +17,7 @@ class APIClient:
         args:
             base_url (str): Base URL of the API.
             api_key (str): API key for authentication.
-            timeout (int): Reuest timeout in seconds.
+            timeout (int): Request timeout in seconds.
         """
         self.base_url = base_url
         self.api_key = api_key
@@ -57,8 +58,16 @@ class APIClient:
                 if not data.get('next'):
                     logger.info('No more data to fetch')
                     break
+                
+                """
+                Strip the offset from the 'next' url parameter
+                """
+                parsed_url = urlparse(data['next'])
+                query_params = parse_qs(parsed_url.query)
+                offset = query_params.get('offset', [None])[0]
 
-                params['offset'] += 100
+                params['offset'] = offset
+
             except requests.exceptions.RequestException as e:
                 logger.error(f'Request failed: {e}')
                 break
@@ -91,7 +100,5 @@ if __name__ == '__main__':
 
     client = APIClient(base_url=BASE_URL, api_key=API_KEY)
 
-    data = client.fetch_data('/pokemon', params={'limit': 100})
-    print(f"Pokemon Data: {next(data)}")
-    
-    # Need to finish setting up for loop to fetch all data.
+    for page in client.fetch_data('/pokemon', params={'limit': 100}):
+        logger.info(f'Fetched {len(page.get('results', []))} records')
